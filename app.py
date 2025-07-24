@@ -69,16 +69,45 @@ else:
         else:
             st.warning("No attendance data found.")
 
-    elif choice == "Timetable":
-        with st.spinner("Fetching Timetable..."):
-            data = client.get_timetable(selected_sem_id)
-        if data.slots:
-            df = pd.DataFrame([asdict(s) for s in data.slots])
-            df = df[['day', 'start_time', 'end_time', 'course_code', 'name', 'slot', 'room_no']]
-            st.dataframe(df, use_container_width=True)
-        else:
-            st.warning("No timetable data found.")
 
+    elif choice == "Timetable":
+            with st.spinner("Fetching Timetable..."):
+                data = client.get_timetable(selected_sem_id)
+            if data.slots:
+                df = pd.DataFrame([asdict(s) for s in data.slots])
+                df = df[['day', 'start_time', 'end_time', 'course_code', 'name', 'slot', 'room_no']]
+                
+                times_dt = pd.to_datetime(df['start_time'], format='%H:%M', errors='coerce')
+                
+                rounded_str = times_dt.dt.round('h').dt.strftime('%H:%M')
+                
+                df['start_time'] = rounded_str.fillna(df['start_time'])
+
+                day_order = ["TUE", "WED", "THU", "FRI", "SAT"]
+                day_full_names = {
+                    "MON": "Monday",
+                    "TUE": "Tuesday",
+                    "WED": "Wednesday",
+                    "THU": "Thursday",
+                    "FRI": "Friday",
+                    "SAT": "Saturday",
+                    "SUN": "Sunday"
+                }
+
+                for day_code in day_order:
+                    day_df = df[df['day'] == day_code]
+                    
+                    if not day_df.empty:
+                        full_day_name = day_full_names.get(day_code, day_code)
+                        st.subheader(f"🗓️ {full_day_name}")
+                        
+                        display_df = day_df.sort_values(by='start_time').drop(columns=['day'])
+                        
+                        st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+            else:
+                st.warning("No timetable data found.")
+                
     elif choice == "Marks":
         with st.spinner("Fetching Marks..."):
             data = client.get_marks(selected_sem_id)
@@ -110,7 +139,6 @@ else:
                     return "FAT"
                 return long_name.title()
             
-
             exam_types = [map_exam_name(exam.exam_type) for exam in data.exams]
             tabs = st.tabs(exam_types)
             

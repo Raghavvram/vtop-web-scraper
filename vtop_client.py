@@ -162,7 +162,6 @@ class VtopClient:
         max_retries = 3
         for _ in range(max_retries):
             try:
-                # Step 1: Load initial page to get cookies
                 res = self.session.get(f"{BASE_URL}/open/page")
                 res.raise_for_status()
                 soup = BeautifulSoup(res.text, "lxml")
@@ -170,7 +169,6 @@ class VtopClient:
                 if not self.csrf_token:
                     continue
 
-                # Step 2: Get captcha
                 res = self.session.post(f"{BASE_URL}/prelogin/setup", data={"_csrf": self.csrf_token, "flag": "VTOP"})
                 res.raise_for_status()
                 soup = BeautifulSoup(res.text, "lxml")
@@ -183,7 +181,6 @@ class VtopClient:
                 if not captcha_solution:
                     continue
 
-                # Step 3: Perform login
                 login_payload = {
                     "_csrf": self.csrf_token,
                     "username": self.username,
@@ -291,36 +288,61 @@ class VtopClient:
                         classname_code[code] = name
         
         slots = []
-        timings = []
+        timings_temp = []
         if len(tables) > 1:
             rows = tables[1].find_all('tr')
-            if len(rows) > 1:
-                start_times = [self._get_text(c) for c in rows[0].find_all('td')]
-                end_times = [self._get_text(c) for c in rows[1].find_all('td')]
-                timings = list(zip(start_times, end_times))
-            
             day = ""
-            for row in rows[2:]:
+            count_for_offset = 0
+
+            for row in rows:
                 cells = row.find_all('td')
-                current_day_cell = cells[0]
-                if current_day_cell.has_attr('rowspan'):
-                    day = self._get_text(current_day_cell)
-                    cells.pop(0)
+                if not cells:
+                    continue
                 
-                for i, cell in enumerate(cells):
-                    text = self._get_text(cell)
-                    if len(text) > 5:
-                        parts = [p.strip() for p in text.split('-')]
-                        if len(parts) >= 4:
-                            code = parts[1]
-                            slots.append(TimetableSlot(
-                                serial=str(i), day=day, slot=parts[0],
-                                course_code=code, course_type=parts[2],
-                                room_no=parts[3], block=parts[4] if len(parts) > 4 else "",
-                                start_time=timings[i][0] if i < len(timings) else "",
-                                end_time=timings[i][1] if i < len(timings) else "",
-                                name=classname_code.get(code, "")
-                            ))
+                if count_for_offset == 0:
+                    for i, cell in enumerate(cells):
+                        timings_temp.append({
+                            "serial": str(i),
+                            "start_time": self._get_text(cell),
+                            "end_time": ""
+                        })
+                elif count_for_offset == 1:
+                    for i, cell in enumerate(cells):
+                        if i < len(timings_temp):
+                            timings_temp[i]["end_time"] = self._get_text(cell)
+                else:
+                    if len(cells) > 1:
+                        current_cells = list(cells)
+                        start_index = 0
+                        if count_for_offset % 2 == 0:
+                            day = self._get_text(current_cells[0])
+                            current_cells.pop(0)
+                            start_index = 1
+                        
+                        for i, cell in enumerate(current_cells):
+                            original_index = i + start_index
+                            text = self._get_text(cell)
+                            if len(text) > 5:
+                                parts = [p.strip() for p in text.split('-')]
+                                if len(parts) >= 4:
+                                    code = parts[1]
+                                    slots.append(TimetableSlot(
+                                        serial=str(original_index), day=day, slot=parts[0],
+                                        course_code=code, course_type=parts[2],
+                                        room_no=parts[3], block=parts[4] if len(parts) > 4 else "",
+                                        start_time="",
+                                        end_time="",
+                                        name=classname_code.get(code, "")
+                                    ))
+                count_for_offset += 1
+        
+        for slot in slots:
+            for timing in timings_temp:
+                if timing["serial"] == slot.serial:
+                    slot.start_time = timing["start_time"]
+                    slot.end_time = timing["end_time"]
+                    break
+        
         return TimetableData(slots=slots, semester_id=semester_id, update_time=int(time.time()))
 
     def get_marks(self, semester_id):

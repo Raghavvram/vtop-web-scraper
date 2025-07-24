@@ -77,13 +77,9 @@ else:
                 df = pd.DataFrame([asdict(s) for s in data.slots])
                 df = df[['day', 'start_time', 'end_time', 'course_code', 'name', 'slot', 'room_no']]
                 
-                times_dt = pd.to_datetime(df['start_time'], format='%H:%M', errors='coerce')
-                
-                rounded_str = times_dt.dt.round('h').dt.strftime('%H:%M')
-                
-                df['start_time'] = rounded_str.fillna(df['start_time'])
+                df.loc[df['slot'] == 'LUNCH', 'start_time'] = '14:00'
 
-                day_order = ["TUE", "WED", "THU", "FRI", "SAT"]
+                day_order = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
                 day_full_names = {
                     "MON": "Monday",
                     "TUE": "Tuesday",

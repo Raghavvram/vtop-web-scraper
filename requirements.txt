@@ -6,3 +6,4 @@ pandas
 streamlit-option-menu
 plotly
 streamlit-calendar
+streamlit-lottie

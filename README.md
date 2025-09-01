@@ -35,7 +35,7 @@ A modern, user-friendly dashboard to view your academic data from the VTOP porta
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/vtop-web-scraper.git
+    git clone https://github.com/Raghavvram/vtop-web-scraper.git
     cd vtop-web-scraper
     ```
 
